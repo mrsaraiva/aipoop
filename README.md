@@ -35,29 +35,49 @@ Generates short-form videos (portrait or landscape) featuring 22 distinct segmen
 
 All driven by 34 visual effects (deep-frying, glitch blocks, VHS distortion, chromatic aberration, retro GUI chrome, film grain, CRT effects, and more) and 7 procedurally synthesized mood soundscapes. Optional TTS voice narration with 26 voice lines per language.
 
-## Requirements
+## Quick Start (Docker)
+
+```bash
+# CPU — generates a Portuguese video in the current directory
+docker run -v $(pwd):/output mrsaraiva/aipoop -o /output/video.mp4
+
+# English, landscape, no voice
+docker run -v $(pwd):/output mrsaraiva/aipoop -o /output/video.mp4 --lang en --landscape --no-voice
+
+# With GPU (CUDA) — faster TTS and NVENC encoding
+docker run --gpus all -v $(pwd):/output mrsaraiva/aipoop:cuda -o /output/video.mp4
+```
+
+| Tag | Size | TTS | GPU Encoding |
+|-----|------|-----|--------------|
+| `latest` | ~2 GB | CPU (slower) | No |
+| `cuda` | ~5 GB | CUDA (fast) | NVENC |
+
+## Local Setup
+
+### Requirements
 
 - Python >= 3.14
 - [uv](https://docs.astral.sh/uv/) (package manager)
 - FFmpeg (system-installed)
-- GPU optional: NVENC for faster encoding, CUDA for TTS voice synthesis
+- GPU optional: NVENC for faster encoding, CUDA for faster TTS
 
-## Setup
+### Install
 
 ```bash
-git clone <repo-url>
-cd ai_poop_generator
+git clone https://github.com/mrsaraiva/aipoop.git
+cd aipoop
 uv sync
 ```
 
-## Usage
+### Usage
 
 ```bash
 uv run poop                               # Portuguese, 1080x1920 portrait (default)
 uv run poop --lang en                      # English
 uv run poop --seed 42                      # Reproducible output
 uv run poop -o my_video.mp4                # Custom output filename
-uv run poop --no-voice                     # Skip TTS (faster, no GPU needed)
+uv run poop --no-voice                     # Skip TTS (faster)
 uv run poop --landscape                    # 1920x1080 landscape
 uv run poop --resolution 720p             # 720x1280 portrait
 uv run poop --resolution 720p --landscape # 1280x720 landscape
@@ -78,7 +98,7 @@ Or pass any custom resolution as `WxH` (e.g. `--resolution 800x600`).
 ## Project Structure
 
 ```
-ai_poop_generator/
+aipoop/
 ├── main.py              # CLI + video orchestrator (parallel, 4-act narrative)
 ├── constants.py         # Resolution, FPS, sample rate (dynamic resolution)
 ├── content.py           # ContentBundle dataclass (36 fields)
@@ -106,7 +126,7 @@ ai_poop_generator/
 
 ## Customizing Content
 
-All text content lives in `ai_poop_generator/data/content_{pt,en}.json`. You can add new thoughts, flash texts, email messages, interview questions, oracle prophecies, and more without touching any Python code.
+All text content lives in `aipoop/data/content_{pt,en}.json`. You can add new thoughts, flash texts, email messages, interview questions, oracle prophecies, and more without touching any Python code.
 
 Each thought has a `text` and a `mood`. Available moods: `calm`, `panic`, `glitch`, `deep_fried`, `void`, `scream`, `whisper`.
 
@@ -128,6 +148,16 @@ Each thought has a `text` and a `mood`. Available moods: `calm`, `panic`, `glitc
 5. FFmpeg concat demuxer assembles all frame directories + combined audio into the final MP4
 
 The `--seed` flag makes all random choices deterministic, producing identical videos for the same seed.
+
+## Building Docker Images
+
+```bash
+# CPU variant (default)
+docker build -t mrsaraiva/aipoop:latest .
+
+# CUDA variant (GPU-accelerated TTS + NVENC)
+docker build --build-arg TORCH_VARIANT=cu126 -t mrsaraiva/aipoop:cuda .
+```
 
 ## License
 

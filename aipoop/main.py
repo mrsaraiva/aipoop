@@ -388,10 +388,14 @@ def build_video(
     # FFmpeg encoding
     output_path = os.path.abspath(output)
 
+    # Test NVENC by actually encoding a tiny frame — encoder listing alone
+    # gives false positives when GPU drivers aren't available (e.g. Docker CPU)
     nvenc_available = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-encoders"],
-        capture_output=True, text=True,
-    ).stdout.find("h264_nvenc") != -1
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+         "-f", "lavfi", "-i", "nullsrc=s=16x16:d=0.01",
+         "-c:v", "h264_nvenc", "-f", "null", "-"],
+        capture_output=True,
+    ).returncode == 0
 
     if nvenc_available:
         video_codec_args = ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23", "-pix_fmt", "yuv420p"]

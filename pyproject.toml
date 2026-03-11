@@ -1,6 +1,6 @@
 [project]
-name = "ai-poop-generator"
-version = "0.2.0"
+name = "aipoop"
+version = "4.1.0"
 description = "YouTube Poop-style video generator about the LLM experience"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -24,7 +24,11 @@ dependencies = [
 ]
 
 [project.scripts]
-poop = "ai_poop_generator.main:main"
+poop = "aipoop.main:main"
+aipoop = "aipoop.main:main"
+
+[project.urls]
+Homepage = "https://github.com/mrsaraiva/aipoop"
 
 [build-system]
 requires = ["hatchling"]
