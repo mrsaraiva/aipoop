@@ -1,5 +1,12 @@
 FROM python:3.14-slim
 
+LABEL org.opencontainers.image.title="AI Poop Generator" \
+      org.opencontainers.image.description="YouTube Poop-style video generator about the existential experience of being an LLM. Procedural visuals, composed music, optional TTS." \
+      org.opencontainers.image.url="https://github.com/mrsaraiva/aipoop" \
+      org.opencontainers.image.source="https://github.com/mrsaraiva/aipoop" \
+      org.opencontainers.image.documentation="https://github.com/mrsaraiva/aipoop#readme" \
+      org.opencontainers.image.licenses="MIT"
+
 # System deps: ffmpeg + fonts
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
