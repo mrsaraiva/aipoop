@@ -18,7 +18,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
-from .constants import WIDTH, HEIGHT, FPS
+from . import constants
+from .constants import FPS
 from .content import get_content, ContentBundle
 from .segments import (
     gen_thought_segment,
@@ -103,8 +104,11 @@ def _generate_one_segment(
     tmp_dir: str,
     content: ContentBundle,
     worker_seed: int,
+    resolution: tuple[int, int] = (1080, 1920),
 ) -> tuple[int, str, np.ndarray]:
     """Generate a single segment in a worker process. Returns (seg_id, frame_dir, audio)."""
+    # Worker processes start with default constants — must apply resolution
+    constants.set_resolution(*resolution)
     random.seed(worker_seed)
     np.random.seed(worker_seed % (2**31))
 
@@ -303,6 +307,7 @@ def build_video(
             fut = executor.submit(
                 _generate_one_segment, seg_id, seg_type, seg_data,
                 tmp_dir, content, worker_seed,
+                (constants.WIDTH, constants.HEIGHT),
             )
             futures[fut] = seg_id
 
@@ -416,7 +421,7 @@ def build_video(
 
     print(f"\nDone! Video saved to: {output_path}")
     print(f"  Duration: {total_duration:.1f}s")
-    print(f"  Resolution: {WIDTH}x{HEIGHT}")
+    print(f"  Resolution: {constants.WIDTH}x{constants.HEIGHT}")
     if voice:
         print(f"  Voice: Chatterbox TTS ({lang})")
 
@@ -426,12 +431,19 @@ def main():
         description="AI Poop Generator — a YouTube Poop about being an LLM",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Resolution presets:
+  1080p     1080x1920 portrait (default)
+  720p      720x1280 portrait
+  4k        2160x3840 portrait
+  Use --landscape to flip any preset to landscape.
+
 Examples:
-  uv run poop --lang pt          # Portuguese version with voice
-  uv run poop --lang en          # English version with voice
-  uv run poop --no-voice         # Skip TTS (faster)
-  uv run poop --seed 42          # Reproducible chaos
-  uv run poop -o meu_video.mp4   # Custom output name
+  uv run poop --lang pt              # Portuguese, 1080x1920 portrait
+  uv run poop --lang en --landscape  # English, 1920x1080 landscape
+  uv run poop --resolution 720p      # 720x1280 portrait
+  uv run poop --resolution 1280x720  # Explicit WxH
+  uv run poop --no-voice             # Skip TTS (faster)
+  uv run poop --seed 42              # Reproducible chaos
 
 Made by Claude, an LLM, about being an LLM.
 The most recursive art form.
@@ -445,8 +457,36 @@ The most recursive art form.
                         help="Output filename. Default: ai_poop.mp4")
     parser.add_argument("--no-voice", action="store_true",
                         help="Skip TTS voice generation (faster, no GPU needed)")
+    parser.add_argument("--resolution", "-r", default="1080p",
+                        help="Resolution: preset (1080p, 720p, 4k) or WxH (e.g. 1280x720). Default: 1080p")
+    parser.add_argument("--landscape", action="store_true",
+                        help="Landscape mode (swap width/height). Turns 1080x1920 into 1920x1080")
+
+    _RESOLUTION_PRESETS = {
+        "1080p": (1080, 1920),
+        "720p": (720, 1280),
+        "4k": (2160, 3840),
+    }
 
     args = parser.parse_args()
+
+    # Resolve resolution
+    res = args.resolution
+    if res in _RESOLUTION_PRESETS:
+        width, height = _RESOLUTION_PRESETS[res]
+    elif "x" in res:
+        try:
+            width, height = (int(v) for v in res.split("x", 1))
+        except ValueError:
+            parser.error(f"Invalid resolution format: {res!r}. Use a preset (1080p, 720p, 4k) or WxH (e.g. 1280x720)")
+    else:
+        parser.error(f"Unknown resolution: {res!r}. Use a preset (1080p, 720p, 4k) or WxH (e.g. 1280x720)")
+
+    if args.landscape:
+        width, height = max(width, height), min(width, height)
+
+    constants.set_resolution(width, height)
+
     build_video(lang=args.lang, seed=args.seed, output=args.output, voice=not args.no_voice)
 
 

@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, typing_cursor_reveal
 from ..audio import generate_mood_audio
@@ -41,7 +42,7 @@ def gen_oracle_segment(
         y_pos = 200 + p_idx * 120
 
         for f in range(typing_frames + hold_frames):
-            img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
             draw = ImageDraw.Draw(img)
 
             # Draw previously completed prophecies

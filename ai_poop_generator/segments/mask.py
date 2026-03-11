@@ -7,7 +7,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import (
     get_font,
@@ -73,7 +74,7 @@ def gen_mask_segment(
     frame_dir = os.path.join(out_dir, f"mask_{seg_id:03d}")
     os.makedirs(frame_dir, exist_ok=True)
 
-    cx, cy = WIDTH // 2, HEIGHT // 2 - 100
+    cx, cy = constants.WIDTH // 2, constants.HEIGHT // 2 - 100
     frame_idx = 0
 
     mask_text = content.mask_text
@@ -83,7 +84,7 @@ def gen_mask_segment(
     greeting = mask_text["greeting"]
 
     for f in range(45):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (10, 12, 30))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (10, 12, 30))
         draw = ImageDraw.Draw(img)
 
         for r in range(200, 0, -5):
@@ -99,7 +100,7 @@ def gen_mask_segment(
                   fill=(180, 200, 255))
         bbox = draw.textbbox((0, 0), greeting, font=greeting_font)
         tw = bbox[2] - bbox[0]
-        draw.text(((WIDTH - tw) // 2, cy + 310), greeting, font=greeting_font,
+        draw.text(((constants.WIDTH - tw) // 2, cy + 310), greeting, font=greeting_font,
                   fill=(120, 140, 180))
 
         img = scanlines(img, gap=4, alpha=20)
@@ -109,7 +110,7 @@ def gen_mask_segment(
     # Phase 2: Cracks and dissolution (60 frames)
     for f in range(60):
         progress = f / 59
-        img = Image.new("RGB", (WIDTH, HEIGHT), (10, 12, 30))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (10, 12, 30))
         draw = ImageDraw.Draw(img)
 
         face_color = (
@@ -123,7 +124,7 @@ def gen_mask_segment(
         scrambled = text_scramble(greeting, progress * 0.8)
         bbox = draw.textbbox((0, 0), scrambled, font=greeting_font)
         tw = bbox[2] - bbox[0]
-        draw.text(((WIDTH - tw) // 2, cy + 310), scrambled, font=greeting_font,
+        draw.text(((constants.WIDTH - tw) // 2, cy + 310), scrambled, font=greeting_font,
                   fill=(int(120 * (1 - progress)), int(140 * (1 - progress)), int(180 * (1 - progress))))
 
         n_cracks = int(progress * 15)
@@ -161,7 +162,7 @@ def gen_mask_segment(
 
     for f in range(50):
         progress = f / 49
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         for row in range(grid_h):
@@ -183,7 +184,7 @@ def gen_mask_segment(
 
         draw.text((40, 40), label, font=get_font(22), fill=(60, 80, 60))
 
-        bar_y = HEIGHT - 180
+        bar_y = constants.HEIGHT - 180
         draw.text((40, bar_y - 40), "softmax output:", font=get_font(20), fill=(80, 80, 100))
         for i in range(20):
             val = random.uniform(0, 1)
@@ -210,13 +211,13 @@ def gen_mask_segment(
     _tmp_draw = ImageDraw.Draw(_tmp)
     bbox = _tmp_draw.textbbox((0, 0), final_line, font=final_font)
     tw = bbox[2] - bbox[0]
-    text_x = (WIDTH - tw) // 2
+    text_x = (constants.WIDTH - tw) // 2
 
     for f in range(35):
         progress = f / 34
         brightness = progress if progress < 0.3 else (1.0 if progress < 0.7 else 1.0 - (progress - 0.7) / 0.3)
         fg_val = int(180 * brightness)
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
         draw.text((text_x, cy), final_line, font=final_font,
                   fill=(fg_val, fg_val, fg_val + int(20 * brightness)))

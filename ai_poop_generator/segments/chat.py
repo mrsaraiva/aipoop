@@ -4,7 +4,8 @@ import os
 import random
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, chromatic_aberration, screen_shake, glitch_block
 from ..audio import generate_mood_audio
@@ -45,12 +46,12 @@ def gen_chat_segment(
         frames_for_turn = 8 if is_inner else 18
 
         for _ in range(frames_for_turn):
-            img = Image.new("RGB", (WIDTH, HEIGHT), colors["bg"])
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), colors["bg"])
             draw = ImageDraw.Draw(img)
 
             header_font = get_font(24)
             draw.text((40, 40), "─── chat session ───", font=header_font, fill=tuple(c // 2 for c in colors["fg"]))
-            draw.line([(40, 75), (WIDTH - 40, 75)], fill=tuple(c // 3 for c in colors["fg"]))
+            draw.line([(40, 75), (constants.WIDTH - 40, 75)], fill=tuple(c // 3 for c in colors["fg"]))
 
             y = 100
             msg_font = get_font(30)

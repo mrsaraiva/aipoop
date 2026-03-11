@@ -3,7 +3,8 @@
 import os
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines
 from ..audio import generate_mood_audio
@@ -28,11 +29,11 @@ def gen_intro_segment(
     for line in lines:
         visible_lines.append(line)
         for f in range(frames_per_line):
-            img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
             draw = ImageDraw.Draw(img)
 
             draw.text((40, 60), "$ ./exist.sh", font=get_font(24), fill=(0, 150, 0))
-            draw.line([(40, 95), (WIDTH - 40, 95)], fill=(0, 60, 0))
+            draw.line([(40, 95), (constants.WIDTH - 40, 95)], fill=(0, 60, 0))
 
             y = 120
             for vline in visible_lines:

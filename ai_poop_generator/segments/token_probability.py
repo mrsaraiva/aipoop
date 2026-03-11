@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, film_grain, token_probability_bars
 from ..audio import generate_mood_audio
@@ -37,7 +38,7 @@ def gen_token_probability_segment(
     ]
 
     for f in range(total_frames):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         progress = f / total_frames
@@ -45,7 +46,7 @@ def gen_token_probability_segment(
         # Show prompt at top
         draw.text((40, 60), f"prompt: \"{prompt}\"", font=prompt_font, fill=(0, 180, 0))
         draw.text((40, 100), "next token probabilities:", font=get_font(20), fill=(0, 120, 0))
-        draw.line([(40, 130), (WIDTH - 40, 130)], fill=(0, 60, 0))
+        draw.line([(40, 130), (constants.WIDTH - 40, 130)], fill=(0, 60, 0))
 
         # Pick distribution based on progress (cycle through them)
         dist_idx = int(progress * len(token_sets) * 2) % len(token_sets)

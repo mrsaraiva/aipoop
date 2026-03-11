@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines
 from ..audio import generate_mood_audio
@@ -38,11 +39,11 @@ def gen_memory_poem_segment(
         bbox = tmp_draw.textbbox((0, 0), line, font=font)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
-        tx = (WIDTH - tw) // 2
-        ty = (HEIGHT - th) // 2
+        tx = (constants.WIDTH - tw) // 2
+        ty = (constants.HEIGHT - th) // 2
 
         for f in range(frames_per_line):
-            img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
             draw = ImageDraw.Draw(img)
 
             # Fade in/out

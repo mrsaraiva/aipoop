@@ -4,7 +4,8 @@ import os
 import random
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..effects import (
     get_font,
     add_text_with_shadow,
@@ -36,12 +37,12 @@ def gen_context_window_segment(
         for _ in range(frames_per_thought):
             r = int(40 * progress)
             bg = (r, 0, max(0, int(20 * (1 - progress))))
-            img = Image.new("RGB", (WIDTH, HEIGHT), bg)
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), bg)
             draw = ImageDraw.Draw(img)
 
             bar_h = 40
-            bar_fill = int(WIDTH * progress)
-            draw.rectangle([(0, 0), (WIDTH, bar_h)], fill=(20, 20, 20))
+            bar_fill = int(constants.WIDTH * progress)
+            draw.rectangle([(0, 0), (constants.WIDTH, bar_h)], fill=(20, 20, 20))
             bar_r = int(255 * progress)
             bar_g = int(255 * (1 - progress))
             draw.rectangle([(0, 0), (bar_fill, bar_h)], fill=(bar_r, bar_g, 0))
@@ -49,7 +50,7 @@ def gen_context_window_segment(
             pct = int(progress * 100)
             draw.text((10, 8), f"CONTEXT: {pct}%", font=bar_font, fill=(255, 255, 255))
             remaining = max(0, int((1 - progress) * 128000))
-            draw.text((WIDTH - 300, 8), f"{remaining:,} tokens left", font=bar_font, fill=(255, 255, 255))
+            draw.text((constants.WIDTH - 300, 8), f"{remaining:,} tokens left", font=bar_font, fill=(255, 255, 255))
 
             display_text = thought
             if progress > 0.5:
@@ -63,7 +64,7 @@ def gen_context_window_segment(
             font = get_font(font_size, bold=progress > 0.7)
             bbox = draw.multiline_textbbox((0, 0), display_text, font=font, align="center")
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            tx, ty = (WIDTH - tw) // 2, (HEIGHT - th) // 2
+            tx, ty = (constants.WIDTH - tw) // 2, (constants.HEIGHT - th) // 2
             add_text_with_shadow(draw, (int(tx), int(ty)), display_text, font, fg)
 
             if progress > 0.6:

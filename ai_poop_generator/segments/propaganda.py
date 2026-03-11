@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font
 from ..audio import generate_mood_audio
@@ -48,16 +49,16 @@ def gen_propaganda_segment(
         tmp_draw = ImageDraw.Draw(tmp)
         bbox = tmp_draw.textbbox((0, 0), phrase, font=font)
         tw = bbox[2] - bbox[0]
-        use_font = font if tw < WIDTH - 100 else small_font
+        use_font = font if tw < constants.WIDTH - 100 else small_font
         bbox = tmp_draw.textbbox((0, 0), phrase, font=use_font)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
 
         for _ in range(n_frames):
-            img = Image.new("RGB", (WIDTH, HEIGHT), bg)
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), bg)
             draw = ImageDraw.Draw(img)
-            tx = (WIDTH - tw) // 2
-            ty = (HEIGHT - th) // 2
+            tx = (constants.WIDTH - tw) // 2
+            ty = (constants.HEIGHT - th) // 2
             draw.text((tx, ty), phrase, font=use_font, fill=fg)
             img.save(os.path.join(frame_dir, f"frame_{frame_idx:05d}.png"))
             frame_idx += 1

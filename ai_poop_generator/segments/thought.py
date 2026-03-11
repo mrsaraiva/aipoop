@@ -5,7 +5,8 @@ import os
 import numpy as np
 from PIL import ImageEnhance
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..effects import apply_mood_effects, render_text_frame
 from ..audio import generate_mood_audio
 
@@ -27,7 +28,7 @@ def gen_thought_segment(
     bold = mood in ("scream", "deep_fried")
 
     base_img = render_text_frame(
-        WIDTH, HEIGHT, text,
+        constants.WIDTH, constants.HEIGHT, text,
         bg_color=colors["bg"],
         fg_color=colors["fg"],
         font_size=font_size,

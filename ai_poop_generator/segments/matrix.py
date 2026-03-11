@@ -4,7 +4,8 @@ import os
 import random
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..effects import get_font, add_text_with_shadow
 from ..audio import generate_mood_audio
 
@@ -21,34 +22,34 @@ def gen_matrix_rain_segment(
     os.makedirs(frame_dir, exist_ok=True)
 
     chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
-    n_cols = WIDTH // 20
-    col_y = [random.randint(-HEIGHT, 0) for _ in range(n_cols)]
+    n_cols = constants.WIDTH // 20
+    col_y = [random.randint(-constants.HEIGHT, 0) for _ in range(n_cols)]
     col_speed = [random.randint(8, 25) for _ in range(n_cols)]
     font_small = get_font(18)
     overlay_font = get_font(56, bold=True)
 
     for frame_i in range(n_frames):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         for col in range(n_cols):
             x = col * 20
             y = col_y[col]
-            for row in range(HEIGHT // 20):
+            for row in range(constants.HEIGHT // 20):
                 cy = y + row * 20
-                if 0 <= cy < HEIGHT:
+                if 0 <= cy < constants.HEIGHT:
                     char = random.choice(chars)
                     brightness = max(0, 255 - row * 8)
                     color = (200, 255, 200) if row == 0 else (0, brightness, 0)
                     draw.text((x, cy), char, font=font_small, fill=color)
             col_y[col] += col_speed[col]
-            if col_y[col] > HEIGHT:
-                col_y[col] = random.randint(-HEIGHT, -20)
+            if col_y[col] > constants.HEIGHT:
+                col_y[col] = random.randint(-constants.HEIGHT, -20)
 
         if overlay_text:
             bbox = draw.multiline_textbbox((0, 0), overlay_text, font=overlay_font, align="center")
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            x, y = (WIDTH - tw) // 2, (HEIGHT - th) // 2
+            x, y = (constants.WIDTH - tw) // 2, (constants.HEIGHT - th) // 2
             pad = 30
             draw.rectangle([(x - pad, y - pad), (x + tw + pad, y + th + pad)], fill=(0, 0, 0))
             add_text_with_shadow(draw, (int(x), int(y)), overlay_text, overlay_font, (0, 255, 65), shadow_offset=4)

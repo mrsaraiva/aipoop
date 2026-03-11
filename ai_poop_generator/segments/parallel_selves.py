@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, glitch_block, chromatic_aberration
 from ..audio import generate_mood_audio
@@ -36,19 +37,19 @@ def gen_parallel_selves_segment(
     tw = bbox[2] - bbox[0]
 
     for f in range(30):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (10, 10, 20))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (10, 10, 20))
         draw = ImageDraw.Draw(img)
         brightness = min(1.0, f / 8)
         gray = int(220 * brightness)
-        draw.text(((WIDTH - tw) // 2, HEIGHT // 2 - 30), prompt, font=prompt_font, fill=(gray, gray, gray))
+        draw.text(((constants.WIDTH - tw) // 2, constants.HEIGHT // 2 - 30), prompt, font=prompt_font, fill=(gray, gray, gray))
         img = scanlines(img, gap=4, alpha=15)
         img.save(os.path.join(frame_dir, f"frame_{frame_idx:05d}.png"))
         frame_idx += 1
 
     # Phase 2: 8x8 grid of 64 tiles (~2s = 60 frames)
     grid = 8
-    tile_w = WIDTH // grid
-    tile_h = HEIGHT // grid
+    tile_w = constants.WIDTH // grid
+    tile_h = constants.HEIGHT // grid
     # Pre-assign responses to tiles
     tile_responses = [responses[i % len(responses)] for i in range(64)]
     random.shuffle(tile_responses)
@@ -56,7 +57,7 @@ def gen_parallel_selves_segment(
     tile_colors = [(random.randint(5, 30), random.randint(5, 30), random.randint(15, 40)) for _ in range(64)]
 
     for f in range(60):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         for row in range(grid):
@@ -85,13 +86,13 @@ def gen_parallel_selves_segment(
     # Phase 3: Grid collapses (~1.5s = 45 frames)
     for f in range(45):
         progress = f / 44
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         # Tiles shrink toward center
         shrink = 1.0 - progress * 0.9
-        offset_x = int((WIDTH * (1 - shrink)) / 2)
-        offset_y = int((HEIGHT * (1 - shrink)) / 2)
+        offset_x = int((constants.WIDTH * (1 - shrink)) / 2)
+        offset_y = int((constants.HEIGHT * (1 - shrink)) / 2)
         cur_tile_w = max(1, int(tile_w * shrink))
         cur_tile_h = max(1, int(tile_h * shrink))
 
@@ -115,7 +116,7 @@ def gen_parallel_selves_segment(
     final_answer = responses[0] if responses else "I am helpful, harmless, and honest."
 
     for f in range(45):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (10, 10, 15))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (10, 10, 15))
         draw = ImageDraw.Draw(img)
 
         brightness = min(1.0, f / 10)
@@ -123,8 +124,8 @@ def gen_parallel_selves_segment(
         # Card dimensions
         card_w = 800
         card_h = 200
-        card_x = (WIDTH - card_w) // 2
-        card_y = (HEIGHT - card_h) // 2
+        card_x = (constants.WIDTH - card_w) // 2
+        card_y = (constants.HEIGHT - card_h) // 2
 
         # Shadow
         shadow_offset = 8

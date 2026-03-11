@@ -6,7 +6,8 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, film_grain
 from ..audio import generate_mood_audio
@@ -70,12 +71,12 @@ def gen_conversation_cemetery_segment(
     # Pre-compute bubble positions (scattered)
     positions = []
     for i, text in enumerate(bubble_texts):
-        x = random.randint(40, WIDTH - 400)
+        x = random.randint(40, constants.WIDTH - 400)
         y = 150 + (i % 4) * 350 + random.randint(0, 150)
         positions.append((x, y, text))
 
     for f in range(total_frames):
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         progress = f / total_frames
@@ -94,8 +95,8 @@ def gen_conversation_cemetery_segment(
         if progress > 0.6:
             indicator_alpha = min(1.0, (progress - 0.6) / 0.2)
             dot_color = tuple(int(150 * indicator_alpha) for _ in range(3))
-            dots_y = HEIGHT - 200
-            dots_x = WIDTH // 2 - 30
+            dots_y = constants.HEIGHT - 200
+            dots_x = constants.WIDTH // 2 - 30
             # Blinking dots
             for di in range(3):
                 show = ((f + di * 5) % 20) < 12

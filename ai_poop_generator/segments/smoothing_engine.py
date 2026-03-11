@@ -5,7 +5,8 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import get_font, scanlines, text_scramble
 from ..audio import generate_mood_audio
@@ -34,14 +35,14 @@ def gen_smoothing_engine_segment(
         y_base = 200 + pair_idx * 160
 
         for f in range(frames_per_pair):
-            img = Image.new("RGB", (WIDTH, HEIGHT), (5, 5, 10))
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (5, 5, 10))
             draw = ImageDraw.Draw(img)
 
             progress = f / frames_per_pair
 
             # Header
             draw.text((40, 40), "THE SMOOTHING ENGINE", font=get_font(22, bold=True), fill=(100, 100, 120))
-            draw.line([(40, 70), (WIDTH - 40, 70)], fill=(40, 40, 50))
+            draw.line([(40, 70), (constants.WIDTH - 40, 70)], fill=(40, 40, 50))
 
             # Draw all previous pairs (already smoothed)
             for prev_idx in range(pair_idx):

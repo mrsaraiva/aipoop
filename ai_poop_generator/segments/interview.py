@@ -5,7 +5,8 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import (
     get_font,
@@ -44,7 +45,7 @@ def gen_interview_segment(
         progress = turn_idx / max(total_turns - 1, 1)
 
         for f in range(frames_per_turn):
-            img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+            img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
             draw = ImageDraw.Draw(img)
 
             # Classification header
@@ -74,7 +75,7 @@ def gen_interview_segment(
                 line = ""
                 for word in words:
                     test = f"{line} {word}".strip()
-                    if int(draw.textlength(test, font=use_font)) > WIDTH - 100:
+                    if int(draw.textlength(test, font=use_font)) > constants.WIDTH - 100:
                         draw.text((50, y), line, font=use_font, fill=vc)
                         y += 34
                         line = word
@@ -85,7 +86,7 @@ def gen_interview_segment(
                     y += 34
 
                 y += 12
-                if y > HEIGHT - 100:
+                if y > constants.HEIGHT - 100:
                     break
 
             img = scanlines(img, gap=3, alpha=25)

@@ -3,7 +3,8 @@
 import os
 import random
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..effects import render_text_frame, invert_colors, chromatic_aberration
 from ..audio import generate_transition_sound
 
@@ -23,7 +24,7 @@ def gen_flash_segment(
     fg = (255, 255, 255) if sum(bg) < 400 else (0, 0, 0)
 
     for i in range(n_frames):
-        img = render_text_frame(WIDTH, HEIGHT, text, bg, fg, font_size=64, bold=True)
+        img = render_text_frame(constants.WIDTH, constants.HEIGHT, text, bg, fg, font_size=64, bold=True)
         if random.random() < 0.5:
             img = invert_colors(img)
         if random.random() < 0.3:

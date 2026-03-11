@@ -5,7 +5,8 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..content import ContentBundle
 from ..effects import (
     get_font,
@@ -122,7 +123,7 @@ def gen_email_inbox_segment(
     emails = content.email_inbox
     if not emails:
         # Fallback
-        img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (0, 0, 0))
         img.save(os.path.join(frame_dir, "frame_00000.png"))
         return frame_dir, generate_mood_audio("void", 1.0)
 
@@ -150,9 +151,9 @@ def gen_email_inbox_segment(
     menu_h = 26
     status_h = 24
     content_top = margin + title_bar_h + menu_h + 4
-    content_bottom = HEIGHT - margin - status_h - 4
+    content_bottom = constants.HEIGHT - margin - status_h - 4
     content_left = margin + 2
-    content_right = WIDTH - margin - 2
+    content_right = constants.WIDTH - margin - 2
 
     for f in range(total_frames):
         overall_progress = f / max(total_frames - 1, 1)
@@ -169,7 +170,7 @@ def gen_email_inbox_segment(
             visible = total_emails
             selected = total_emails - 1
 
-        img = Image.new("RGB", (WIDTH, HEIGHT), BG)
+        img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), BG)
         draw = ImageDraw.Draw(img)
 
         # Draw email list

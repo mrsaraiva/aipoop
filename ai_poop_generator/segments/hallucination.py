@@ -4,7 +4,8 @@ import os
 import random
 from PIL import Image, ImageDraw
 
-from ..constants import WIDTH, HEIGHT, FPS
+from .. import constants
+from ..constants import FPS
 from ..effects import get_font, text_scramble, scanlines, screen_shake, apply_mood_effects
 from ..audio import generate_mood_audio
 
@@ -29,7 +30,7 @@ def gen_hallucination_segment(
 
         for f in range(frames_for_line):
             if not is_reveal:
-                img = Image.new("RGB", (WIDTH, HEIGHT), (10, 10, 40))
+                img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), (10, 10, 40))
                 draw = ImageDraw.Draw(img)
                 font = get_font(34)
                 y = 300
@@ -39,7 +40,7 @@ def gen_hallucination_segment(
                 img = scanlines(img, gap=4, alpha=20)
             else:
                 bg = (60 + random.randint(0, 40), 0, 0)
-                img = Image.new("RGB", (WIDTH, HEIGHT), bg)
+                img = Image.new("RGB", (constants.WIDTH, constants.HEIGHT), bg)
                 draw = ImageDraw.Draw(img)
 
                 y = 200
