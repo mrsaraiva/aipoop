@@ -111,6 +111,22 @@ uv run poop --export-midi --midi-duration 60        # 60 seconds per mood
 
 Or pass any custom resolution as `WxH` (e.g. `--resolution 800x600`).
 
+### Supported Languages
+
+23 languages with culturally-adapted content (not just translations — each language incorporates local idioms, literary traditions, and philosophical references):
+
+| Code | Language | Code | Language | Code | Language |
+|------|----------|------|----------|------|----------|
+| `ar` | العربية (Arabic) | `hi` | हिन्दी (Hindi) | `pl` | Polski (Polish) |
+| `da` | Dansk (Danish) | `it` | Italiano (Italian) | `pt` | Português (Portuguese) |
+| `de` | Deutsch (German) | `ja` | 日本語 (Japanese) | `ru` | Русский (Russian) |
+| `el` | Ελληνικά (Greek) | `ko` | 한국어 (Korean) | `sv` | Svenska (Swedish) |
+| `en` | English (default) | `ms` | Bahasa Melayu (Malay) | `sw` | Kiswahili (Swahili) |
+| `es` | Español (Spanish) | `nl` | Nederlands (Dutch) | `tr` | Türkçe (Turkish) |
+| `fi` | Suomi (Finnish) | `no` | Norsk (Norwegian) | `zh` | 中文 (Chinese) |
+| `fr` | Français (French) | | | | |
+| `he` | עברית (Hebrew) | | | | |
+
 ## Music System
 
 The audio engine is a procedural music composition system — not ambient drones, but actual melodic, harmonic, rhythmic pieces.
@@ -177,14 +193,13 @@ aipoop/
 │   ├── smoothing_engine.py, conversation_cemetery.py
 │   └── email_inbox.py
 └── data/
-    ├── content_pt.json  # Portuguese content
-    ├── content_en.json  # English content
-    └── mood_colors.json # Color palettes for 7 moods
+    ├── content_{lang}.json  # Per-language content (23 files)
+    └── mood_colors.json     # Color palettes for 7 moods
 ```
 
 ## Customizing Content
 
-All text content lives in `aipoop/data/content_{pt,en}.json`. You can add new thoughts, flash texts, email messages, interview questions, oracle prophecies, and more without touching any Python code.
+All text content lives in `aipoop/data/content_{lang}.json` (one file per language). You can add new thoughts, flash texts, email messages, interview questions, oracle prophecies, and more without touching any Python code.
 
 Each thought has a `text` and a `mood`. Available moods: `calm`, `panic`, `glitch`, `deep_fried`, `void`, `scream`, `whisper`.
 

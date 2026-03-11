@@ -482,8 +482,12 @@ Made by Claude, an LLM, about being an LLM.
 The most recursive art form.
         """,
     )
-    parser.add_argument("--lang", "-l", choices=["en", "pt"], default="en",
-                        help="Language: en (English) or pt (Português BR). Default: en")
+    _ALL_LANGS = sorted([
+        "ar", "da", "de", "el", "en", "es", "fi", "fr", "he", "hi", "it",
+        "ja", "ko", "ms", "nl", "no", "pl", "pt", "ru", "sv", "sw", "tr", "zh",
+    ])
+    parser.add_argument("--lang", "-l", choices=_ALL_LANGS, default="en",
+                        help="Language (23 supported). Default: en")
     parser.add_argument("--seed", "-s", type=int, default=None,
                         help="Random seed for reproducible output")
     parser.add_argument("--output", "-o", default="ai_poop.mp4",
