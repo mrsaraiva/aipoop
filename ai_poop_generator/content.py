@@ -43,4 +43,7 @@ OUTRO_EN: dict[str, str] = _DATA["outro"]["en"]
 MATRIX_OVERLAY_PT: str = _DATA["matrix_overlay"]["pt"]
 MATRIX_OVERLAY_EN: str = _DATA["matrix_overlay"]["en"]
 
+VOICE_LINES_PT: dict[str, str] = _DATA["voice_lines"]["pt"]
+VOICE_LINES_EN: dict[str, str] = _DATA["voice_lines"]["en"]
+
 MOOD_COLORS = _colors_to_tuples(_DATA["mood_colors"])

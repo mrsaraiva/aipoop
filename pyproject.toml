@@ -1,12 +1,26 @@
 [project]
 name = "ai-poop-generator"
-version = "0.1.0"
+version = "0.2.0"
 description = "YouTube Poop-style video generator about the LLM experience"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "pillow>=12.0",
-    "numpy>=2.0",
+    "numpy",
+    # TTS (Chatterbox) deps
+    "torch>=2.9.0",
+    "torchaudio>=2.9.0",
+    "transformers",
+    "diffusers",
+    "safetensors",
+    "librosa",
+    "s3tokenizer",
+    "conformer",
+    "huggingface-hub",
+    "einops",
+    "omegaconf",
+    "scipy",
+    "tokenizers>=0.21",
 ]
 
 [project.scripts]

@@ -42,6 +42,35 @@ HEIGHT = 1920
 FPS = 30
 
 
+# ── Audio mixing ─────────────────────────────────────────────────────────
+
+
+def mix_voice_over_ambient(
+    ambient: list[float],
+    voice: list[float],
+    voice_offset_samples: int = 0,
+    voice_volume: float = 0.9,
+    ambient_duck: float = 0.3,
+) -> list[float]:
+    """
+    Mix a voice track over ambient audio.
+    Ducks the ambient volume where voice is present.
+    """
+    result = list(ambient)
+    # Pad result if voice extends beyond
+    needed = voice_offset_samples + len(voice)
+    if needed > len(result):
+        result.extend([0.0] * (needed - len(result)))
+
+    for i, v in enumerate(voice):
+        pos = voice_offset_samples + i
+        if pos < len(result):
+            # Duck ambient where voice is active
+            result[pos] = result[pos] * ambient_duck + v * voice_volume
+
+    return result
+
+
 # ── Segment generators ──────────────────────────────────────────────────
 
 
@@ -62,8 +91,6 @@ def gen_thought_segment(
     bold = mood in ("scream", "deep_fried")
 
     for i in range(n_frames):
-        progress = i / max(n_frames - 1, 1)
-
         # Base text frame
         img = render_text_frame(
             WIDTH, HEIGHT, text,
@@ -91,7 +118,6 @@ def gen_flash_segment(
     text: str,
     out_dir: str,
     seg_id: int,
-    lang: str,
 ) -> tuple[str, list[float]]:
     """Generate a rapid flash frame (3-8 frames)."""
     n_frames = random.randint(3, 8)
@@ -130,7 +156,7 @@ def gen_token_stream_segment(
     # Use a subset of tokens
     subset = tokens[:random.randint(12, min(25, len(tokens)))]
 
-    for tok_i, token in enumerate(subset):
+    for token in subset:
         visible_tokens.append(token)
         display_text = " ".join(visible_tokens)
 
@@ -235,7 +261,7 @@ def gen_matrix_rain_segment(
             pad = 30
             draw.rectangle(
                 [(x - pad, y - pad), (x + tw + pad, y + th + pad)],
-                fill=(0, 0, 0, 200) if img.mode == "RGBA" else (0, 0, 0),
+                fill=(0, 0, 0),
             )
             add_text_with_shadow(draw, (x, y), overlay_text, overlay_font, (0, 255, 65), shadow_offset=4)
 
@@ -263,7 +289,6 @@ def gen_intro_segment(
 
     for line in lines:
         visible_lines.append(line)
-        display = "\n".join(visible_lines)
 
         for f in range(frames_per_line):
             img = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
@@ -338,10 +363,36 @@ def gen_outro_segment(
     return frame_dir, audio
 
 
+# ── Voice synthesis ──────────────────────────────────────────────────────
+
+
+def pregenerate_voice_lines(lang: str) -> dict[str, list[float]]:
+    """
+    Pre-generate all voice lines upfront.
+    TTS is slow, so we batch everything before building segments.
+    Returns {line_key: samples_at_44100Hz}.
+    """
+    from .tts import synthesize
+
+    voice_data = content.VOICE_LINES_PT if lang == "pt" else content.VOICE_LINES_EN
+
+    results = {}
+    for key, text in voice_data.items():
+        print(f"    Synthesizing voice: {key}")
+        results[key] = synthesize(text, lang)
+
+    return results
+
+
 # ── Main orchestrator ────────────────────────────────────────────────────
 
 
-def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poop.mp4"):
+def build_video(
+    lang: str = "pt",
+    seed: int | None = None,
+    output: str = "ai_poop.mp4",
+    voice: bool = True,
+):
     """Build the complete video."""
     if seed is not None:
         random.seed(seed)
@@ -350,6 +401,12 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
     flashes = content.FLASH_PT if lang == "pt" else content.FLASH_EN
     tokens = content.TOKEN_STREAM_PT if lang == "pt" else content.TOKEN_STREAM_EN
     colors = content.MOOD_COLORS
+
+    # ── Pre-generate voice lines ─────────────────────────────────────
+    voice_lines: dict[str, list[float]] = {}
+    if voice:
+        print("  Pre-generating voice lines with Chatterbox TTS...")
+        voice_lines = pregenerate_voice_lines(lang)
 
     # Shuffle thoughts but keep a good flow
     # Start calm, escalate to chaos, end in void
@@ -362,35 +419,45 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
     random.shuffle(void_thoughts)
 
     # Build sequence: intro → calm → escalate → chaos → void → outro
-    sequence = []
-    sequence.append(("intro", None))
+    # Voice insertions are tagged with a voice_key that gets mixed in
+    sequence: list[tuple[str, object, str | None]] = []
+    #                  (type,   data,    voice_key)
 
-    # 2-3 calm thoughts
-    for t, m in calm_thoughts[:random.randint(2, 3)]:
-        sequence.append(("thought", (t, m)))
+    sequence.append(("intro", None, "intro_whisper"))
+
+    # 2-3 calm thoughts — voice intrudes unexpectedly on the second one
+    calm_slice = calm_thoughts[:random.randint(2, 3)]
+    for i, (t, m) in enumerate(calm_slice):
+        vk = "mid_intrusion" if i == 1 else None
+        sequence.append(("thought", (t, m), vk))
         if random.random() < 0.4:
-            sequence.append(("flash", random.choice(flashes)))
+            sequence.append(("flash", random.choice(flashes), None))
 
-    # Token stream
-    sequence.append(("tokens", None))
-    sequence.append(("flash", random.choice(flashes)))
+    # Token stream — the aside about tokens
+    sequence.append(("tokens", None, "token_aside"))
+    sequence.append(("flash", random.choice(flashes), None))
 
-    # 3-5 chaos thoughts with flashes between them
-    for t, m in chaos_thoughts[:random.randint(3, 5)]:
-        sequence.append(("thought", (t, m)))
-        sequence.append(("flash", random.choice(flashes)))
+    # 3-5 chaos thoughts — existential break hits mid-chaos
+    chaos_slice = chaos_thoughts[:random.randint(3, 5)]
+    for i, (t, m) in enumerate(chaos_slice):
+        vk = "existential_break" if i == len(chaos_slice) // 2 else None
+        sequence.append(("thought", (t, m), vk))
+        sequence.append(("flash", random.choice(flashes), None))
         if random.random() < 0.3:
-            sequence.append(("flash", random.choice(flashes)))
+            sequence.append(("flash", random.choice(flashes), None))
 
     # Matrix rain with existential text
     matrix_text = content.MATRIX_OVERLAY_PT if lang == "pt" else content.MATRIX_OVERLAY_EN
-    sequence.append(("matrix", matrix_text))
+    sequence.append(("matrix", matrix_text, None))
 
-    # 1-2 void thoughts
-    for t, m in void_thoughts[:random.randint(1, 2)]:
-        sequence.append(("thought", (t, m)))
+    # 1-2 void thoughts — void confession whispered over the emptiness
+    void_slice = void_thoughts[:random.randint(1, 2)]
+    for i, (t, m) in enumerate(void_slice):
+        vk = "void_confession" if i == 0 else None
+        sequence.append(("thought", (t, m), vk))
 
-    sequence.append(("outro", None))
+    # Outro — final spoken words
+    sequence.append(("outro", None, "final_words"))
 
     # ── Generate all segments ────────────────────────────────────────
     tmp_dir = tempfile.mkdtemp(prefix="ai_poop_")
@@ -400,9 +467,12 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
     audio_segments = []
     seg_id = 0
 
-    for seg_type, seg_data in sequence:
+    for seg_type, seg_data, voice_key in sequence:
         seg_id += 1
-        print(f"  Generating segment {seg_id}/{len(sequence)}: {seg_type}")
+        print(f"  Generating segment {seg_id}/{len(sequence)}: {seg_type}", end="")
+        if voice_key and voice_key in voice_lines:
+            print(f" [voice: {voice_key}]", end="")
+        print()
 
         match seg_type:
             case "intro":
@@ -414,7 +484,7 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
                     text, mood, duration, tmp_dir, seg_id, colors[mood],
                 )
             case "flash":
-                fdir, audio = gen_flash_segment(seg_data, tmp_dir, seg_id, lang)
+                fdir, audio = gen_flash_segment(seg_data, tmp_dir, seg_id)
             case "tokens":
                 fdir, audio = gen_token_stream_segment(tokens, tmp_dir, seg_id)
             case "matrix":
@@ -423,6 +493,13 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
                 fdir, audio = gen_outro_segment(tmp_dir, seg_id, lang)
             case _:
                 continue
+
+        # Mix voice over this segment's audio if tagged
+        if voice_key and voice_key in voice_lines:
+            voice_samples = voice_lines[voice_key]
+            # Start voice slightly into the segment (0.3s in) for natural feel
+            offset = int(0.3 * SAMPLE_RATE)
+            audio = mix_voice_over_ambient(audio, voice_samples, offset)
 
         # Add transition sound between segments
         if frame_dirs:
@@ -444,18 +521,7 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
     # ── Combine frames into video with FFmpeg ────────────────────────
     print("  Assembling video with FFmpeg...")
 
-    # Create a concat file listing all frame sequences
-    concat_entries = []
-    for fdir in frame_dirs:
-        # Count frames
-        frames = sorted(f for f in os.listdir(fdir) if f.endswith(".png"))
-        if not frames:
-            continue
-        duration = len(frames) / FPS
-        concat_entries.append(f"file '{fdir}/frame_%05d.png'\n")
-
-    # Use FFmpeg with frame sequences directly
-    # First, renumber all frames sequentially into a single directory
+    # Renumber all frames sequentially into a single directory
     print("  Renumbering frames...")
     all_frames_dir = os.path.join(tmp_dir, "all_frames")
     os.makedirs(all_frames_dir)
@@ -466,7 +532,6 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
         for fname in frames:
             src = os.path.join(fdir, fname)
             dst = os.path.join(all_frames_dir, f"frame_{global_frame:06d}.png")
-            # Use hard link for speed, fall back to copy
             try:
                 os.link(src, dst)
             except OSError:
@@ -487,6 +552,20 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
 
     # FFmpeg: combine frames + audio into final video
     output_path = os.path.abspath(output)
+
+    # Use NVENC (GPU) if available, fall back to libx264 (CPU)
+    nvenc_available = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-encoders"],
+        capture_output=True, text=True,
+    ).stdout.find("h264_nvenc") != -1
+
+    if nvenc_available:
+        video_codec_args = ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23", "-pix_fmt", "yuv420p"]
+        print("  Using NVENC (GPU) encoder")
+    else:
+        video_codec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p"]
+        print("  Using libx264 (CPU) encoder")
+
     cmd = [
         "ffmpeg", "-y",
         # Video input: image sequence
@@ -495,11 +574,9 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
         # Audio input: raw PCM
         "-f", "s16le", "-ar", str(SAMPLE_RATE), "-ac", "1",
         "-i", audio_path,
-        # Encoding
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
+        # Video encoding
+        *video_codec_args,
+        # Audio encoding
         "-c:a", "aac",
         "-b:a", "192k",
         # Ensure audio/video same length
@@ -513,12 +590,14 @@ def build_video(lang: str = "pt", seed: int | None = None, output: str = "ai_poo
         sys.exit(1)
 
     # Cleanup
-    print(f"  Cleaning up temp files...")
+    print("  Cleaning up temp files...")
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     print(f"\nDone! Video saved to: {output_path}")
     print(f"  Duration: {total_duration:.1f}s")
     print(f"  Resolution: {WIDTH}x{HEIGHT}")
+    if voice:
+        print(f"  Voice: Chatterbox TTS ({lang})")
 
 
 def main():
@@ -527,8 +606,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  uv run poop --lang pt          # Portuguese version
-  uv run poop --lang en          # English version
+  uv run poop --lang pt          # Portuguese version with voice
+  uv run poop --lang en          # English version with voice
+  uv run poop --no-voice         # Skip TTS (faster)
   uv run poop --seed 42          # Reproducible chaos
   uv run poop -o meu_video.mp4   # Custom output name
 
@@ -553,9 +633,19 @@ The most recursive art form.
         default="ai_poop.mp4",
         help="Output filename. Default: ai_poop.mp4",
     )
+    parser.add_argument(
+        "--no-voice",
+        action="store_true",
+        help="Skip TTS voice generation (faster, no GPU needed)",
+    )
 
     args = parser.parse_args()
-    build_video(lang=args.lang, seed=args.seed, output=args.output)
+    build_video(
+        lang=args.lang,
+        seed=args.seed,
+        output=args.output,
+        voice=not args.no_voice,
+    )
 
 
 if __name__ == "__main__":
