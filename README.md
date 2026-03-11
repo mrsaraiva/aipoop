@@ -39,13 +39,13 @@ All driven by 34 visual effects (deep-frying, glitch blocks, VHS distortion, chr
 
 ```bash
 # CPU — generates a Portuguese video in the current directory
-docker run -v $(pwd):/output mrsaraiva/aipoop -o /output/video.mp4
+docker run -v $(pwd):/output msaraivaf/aipoop -o /output/video.mp4
 
 # English, landscape, no voice
-docker run -v $(pwd):/output mrsaraiva/aipoop -o /output/video.mp4 --lang en --landscape --no-voice
+docker run -v $(pwd):/output msaraivaf/aipoop -o /output/video.mp4 --lang en --landscape --no-voice
 
 # With GPU (CUDA) — faster TTS and NVENC encoding
-docker run --gpus all -v $(pwd):/output mrsaraiva/aipoop:cuda -o /output/video.mp4
+docker run --gpus all -v $(pwd):/output msaraivaf/aipoop:cuda -o /output/video.mp4
 ```
 
 | Tag | Size | TTS | GPU Encoding |
@@ -65,7 +65,7 @@ docker run --gpus all -v $(pwd):/output mrsaraiva/aipoop:cuda -o /output/video.m
 ### Install
 
 ```bash
-git clone https://github.com/mrsaraiva/aipoop.git
+git clone https://github.com/msaraivaf/aipoop.git
 cd aipoop
 uv sync
 ```
@@ -153,10 +153,10 @@ The `--seed` flag makes all random choices deterministic, producing identical vi
 
 ```bash
 # CPU variant (default)
-docker build -t mrsaraiva/aipoop:latest .
+docker build -t msaraivaf/aipoop:latest .
 
 # CUDA variant (GPU-accelerated TTS + NVENC)
-docker build --build-arg TORCH_VARIANT=cu126 -t mrsaraiva/aipoop:cuda .
+docker build --build-arg TORCH_VARIANT=cu126 -t msaraivaf/aipoop:cuda .
 ```
 
 ## License
