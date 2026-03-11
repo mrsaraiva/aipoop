@@ -46,4 +46,16 @@ MATRIX_OVERLAY_EN: str = _DATA["matrix_overlay"]["en"]
 VOICE_LINES_PT: dict[str, str] = _DATA["voice_lines"]["pt"]
 VOICE_LINES_EN: dict[str, str] = _DATA["voice_lines"]["en"]
 
+CHAT_CONVERSATIONS_PT: list[dict] = _DATA["chat_conversations"]["pt"]
+CHAT_CONVERSATIONS_EN: list[dict] = _DATA["chat_conversations"]["en"]
+
+CONTEXT_WINDOW_PT: list[str] = _DATA["context_window_thoughts"]["pt"]
+CONTEXT_WINDOW_EN: list[str] = _DATA["context_window_thoughts"]["en"]
+
+HALLUCINATION_PT: list[str] = _DATA["hallucination_texts"]["pt"]
+HALLUCINATION_EN: list[str] = _DATA["hallucination_texts"]["en"]
+
+RLHF_SEQUENCE_PT: dict = _DATA["rlhf_sequence"]["pt"]
+RLHF_SEQUENCE_EN: dict = _DATA["rlhf_sequence"]["en"]
+
 MOOD_COLORS = _colors_to_tuples(_DATA["mood_colors"])

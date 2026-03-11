@@ -178,6 +178,48 @@ def render_text_frame(
     return img
 
 
+def screen_shake(img: Image.Image, intensity: int = 15) -> Image.Image:
+    """Randomly offset the entire image to simulate screen shake."""
+    dx = random.randint(-intensity, intensity)
+    dy = random.randint(-intensity, intensity)
+    from PIL import ImageChops
+    return ImageChops.offset(img, dx, dy)
+
+
+def corruption_effect(img: Image.Image, amount: float = 0.3) -> Image.Image:
+    """Randomly corrupt rectangular regions with solid colors or noise."""
+    arr = np.array(img)
+    h, w, _ = arr.shape
+    n_corruptions = int(amount * 10)
+    for _ in range(n_corruptions):
+        ch = random.randint(5, h // 6)
+        cw = random.randint(20, w // 2)
+        cy = random.randint(0, h - ch)
+        cx = random.randint(0, w - cw)
+        if random.random() < 0.5:
+            # Solid color block
+            color = random.choice([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (0, 0, 0)])
+            arr[cy:cy + ch, cx:cx + cw] = color
+        else:
+            # Noise block
+            arr[cy:cy + ch, cx:cx + cw] = np.random.randint(0, 255, (ch, cw, 3), dtype=np.uint8)
+    return Image.fromarray(arr)
+
+
+def text_scramble(text: str, amount: float = 0.3) -> str:
+    """Randomly replace characters with glitch unicode."""
+    glitch_chars = "̷̶̸̵̴̡̨̢̧̛̱̯̮̭̬̫̪̩̦̥̤̣̠̟̞̝̜̙̘̗̖̕̚▓░▒█▄▀■□◆◇○●"
+    result = []
+    for c in text:
+        if c in (' ', '\n'):
+            result.append(c)
+        elif random.random() < amount:
+            result.append(random.choice(glitch_chars))
+        else:
+            result.append(c)
+    return "".join(result)
+
+
 def apply_mood_effects(img: Image.Image, mood: str) -> Image.Image:
     """Apply visual effects based on mood."""
     match mood:
