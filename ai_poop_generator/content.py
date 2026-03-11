@@ -58,4 +58,7 @@ HALLUCINATION_EN: list[str] = _DATA["hallucination_texts"]["en"]
 RLHF_SEQUENCE_PT: dict = _DATA["rlhf_sequence"]["pt"]
 RLHF_SEQUENCE_EN: dict = _DATA["rlhf_sequence"]["en"]
 
+MASK_TEXT_PT: dict[str, str] = _DATA["mask_text"]["pt"]
+MASK_TEXT_EN: dict[str, str] = _DATA["mask_text"]["en"]
+
 MOOD_COLORS = _colors_to_tuples(_DATA["mood_colors"])

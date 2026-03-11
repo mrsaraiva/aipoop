@@ -11,3 +11,6 @@ wheels/
 
 # Generated videos
 *.mp4
+
+# Research / reference material
+tmp/
