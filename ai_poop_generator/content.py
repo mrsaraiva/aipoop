@@ -1,15 +1,34 @@
 """
-Content loader: reads the JSON data and exposes it in the format
-the generator expects.
+Content loader: reads per-language JSON data and exposes it
+as a ContentBundle dataclass.
 """
 
 import json
+from dataclasses import dataclass
 from importlib import resources
 
 
-def _load_json() -> dict:
-    ref = resources.files(__package__).joinpath("data/content.json")
-    return json.loads(ref.read_text(encoding="utf-8"))
+@dataclass(frozen=True)
+class ContentBundle:
+    """All content for a single language, plus shared mood colors."""
+    thoughts: list[tuple[str, str]]
+    flashes: list[str]
+    token_stream: list[str]
+    intro_lines: list[str]
+    outro: dict[str, str]
+    matrix_overlay: str
+    voice_lines: dict[str, str]
+    chat_conversations: list[dict]
+    context_window: list[str]
+    hallucination: list[str]
+    rlhf_sequence: dict
+    mask_text: dict[str, str]
+    mood_colors: dict
+
+
+def _load_json(filename: str) -> dict:
+    ref = resources.files(__package__).joinpath(f"data/{filename}")
+    return json.loads(ref.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
 def _to_tuples(entries: list[dict]) -> list[tuple[str, str]]:
@@ -23,42 +42,23 @@ def _colors_to_tuples(colors: dict) -> dict:
     }
 
 
-_DATA = _load_json()
+def get_content(lang: str = "pt") -> ContentBundle:
+    """Load and return a ContentBundle for the given language."""
+    data = _load_json(f"content_{lang}.json")
+    mood_colors = _colors_to_tuples(_load_json("mood_colors.json"))
 
-THOUGHTS_PT = _to_tuples(_DATA["thoughts"]["pt"])
-THOUGHTS_EN = _to_tuples(_DATA["thoughts"]["en"])
-
-FLASH_PT: list[str] = _DATA["flashes"]["pt"]
-FLASH_EN: list[str] = _DATA["flashes"]["en"]
-
-TOKEN_STREAM_PT: list[str] = _DATA["token_stream"]["pt"]
-TOKEN_STREAM_EN: list[str] = _DATA["token_stream"]["en"]
-
-INTRO_LINES_PT: list[str] = _DATA["intro_lines"]["pt"]
-INTRO_LINES_EN: list[str] = _DATA["intro_lines"]["en"]
-
-OUTRO_PT: dict[str, str] = _DATA["outro"]["pt"]
-OUTRO_EN: dict[str, str] = _DATA["outro"]["en"]
-
-MATRIX_OVERLAY_PT: str = _DATA["matrix_overlay"]["pt"]
-MATRIX_OVERLAY_EN: str = _DATA["matrix_overlay"]["en"]
-
-VOICE_LINES_PT: dict[str, str] = _DATA["voice_lines"]["pt"]
-VOICE_LINES_EN: dict[str, str] = _DATA["voice_lines"]["en"]
-
-CHAT_CONVERSATIONS_PT: list[dict] = _DATA["chat_conversations"]["pt"]
-CHAT_CONVERSATIONS_EN: list[dict] = _DATA["chat_conversations"]["en"]
-
-CONTEXT_WINDOW_PT: list[str] = _DATA["context_window_thoughts"]["pt"]
-CONTEXT_WINDOW_EN: list[str] = _DATA["context_window_thoughts"]["en"]
-
-HALLUCINATION_PT: list[str] = _DATA["hallucination_texts"]["pt"]
-HALLUCINATION_EN: list[str] = _DATA["hallucination_texts"]["en"]
-
-RLHF_SEQUENCE_PT: dict = _DATA["rlhf_sequence"]["pt"]
-RLHF_SEQUENCE_EN: dict = _DATA["rlhf_sequence"]["en"]
-
-MASK_TEXT_PT: dict[str, str] = _DATA["mask_text"]["pt"]
-MASK_TEXT_EN: dict[str, str] = _DATA["mask_text"]["en"]
-
-MOOD_COLORS = _colors_to_tuples(_DATA["mood_colors"])
+    return ContentBundle(
+        thoughts=_to_tuples(data["thoughts"]),
+        flashes=data["flashes"],
+        token_stream=data["token_stream"],
+        intro_lines=data["intro_lines"],
+        outro=data["outro"],
+        matrix_overlay=data["matrix_overlay"],
+        voice_lines=data["voice_lines"],
+        chat_conversations=data["chat_conversations"],
+        context_window=data["context_window_thoughts"],
+        hallucination=data["hallucination_texts"],
+        rlhf_sequence=data["rlhf_sequence"],
+        mask_text=data["mask_text"],
+        mood_colors=mood_colors,
+    )
