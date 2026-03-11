@@ -135,6 +135,80 @@ def corruption_effect(img: Image.Image, amount: float = 0.3) -> Image.Image:
     return Image.fromarray(arr)
 
 
+def film_grain(img: Image.Image, intensity: int = 30) -> Image.Image:
+    """Add per-pixel grayscale noise for a film grain look."""
+    arr = np.array(img, dtype=np.int16)
+    noise = np.random.randint(-intensity, intensity + 1, (arr.shape[0], arr.shape[1], 1), dtype=np.int16)
+    arr += noise
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
+def near_black_subliminal(img: Image.Image, brightness: float = 0.04) -> Image.Image:
+    """Multiply all pixels by a tiny factor, making content barely perceptible."""
+    arr = np.array(img, dtype=np.float32)
+    arr *= brightness
+    return Image.fromarray(arr.astype(np.uint8))
+
+
+def diagonal_streaks(
+    img: Image.Image,
+    count: int = 5,
+    color: tuple[int, int, int] = (255, 0, 180),
+    alpha: float = 0.3,
+) -> Image.Image:
+    """Diagonal corruption lines across the frame."""
+    overlay = Image.new("RGB", img.size, (0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    w, h = img.size
+
+    for _ in range(count):
+        x_start = random.randint(-w // 2, w)
+        y_start = random.randint(-h // 4, 0)
+        x_end = x_start + random.randint(w // 2, w)
+        y_end = y_start + h + random.randint(0, h // 4)
+        width = random.randint(2, 6)
+        draw.line((x_start, y_start, x_end, y_end), fill=color, width=width)
+
+    # Alpha blend
+    arr_base = np.array(img, dtype=np.float32)
+    arr_over = np.array(overlay, dtype=np.float32)
+    mask = arr_over.sum(axis=2, keepdims=True) > 0
+    arr_base = np.where(mask, arr_base * (1 - alpha) + arr_over * alpha, arr_base)
+    return Image.fromarray(arr_base.astype(np.uint8))
+
+
+def heavy_crt_interlace(
+    img: Image.Image, darken: float = 0.4, blur_px: int = 1
+) -> Image.Image:
+    """Dense scanlines with color bleed: every other row darkened + horizontal blur."""
+    from PIL import ImageFilter
+
+    arr = np.array(img, dtype=np.float32)
+    # Darken odd rows
+    arr[1::2] *= (1.0 - darken)
+    img = Image.fromarray(arr.astype(np.uint8))
+
+    if blur_px > 0:
+        # Apply horizontal blur via box blur on each channel
+        img = img.filter(ImageFilter.BoxBlur(blur_px))
+
+    return img
+
+
+def rgb_static_noise(width: int, height: int) -> Image.Image:
+    """Full-frame random RGB noise (for transitions)."""
+    arr = np.random.randint(0, 256, (height, width, 3), dtype=np.uint8)
+    return Image.fromarray(arr)
+
+
+def crt_warmup_noise(width: int, height: int) -> Image.Image:
+    """Green-biased CRT warm-up noise."""
+    arr = np.random.randint(20, 60, (height, width, 3), dtype=np.uint8)
+    # Boost green channel
+    arr[:, :, 1] = np.random.randint(40, 100, (height, width), dtype=np.uint8)
+    return Image.fromarray(arr)
+
+
 def invert_colors(img: Image.Image) -> Image.Image:
     """Invert all colors."""
     from PIL import ImageOps

@@ -24,6 +24,16 @@ class ContentBundle:
     rlhf_sequence: dict
     mask_text: dict[str, str]
     mood_colors: dict
+    system_prompt_lines: list[str]
+    poem_sequences: list[list[str]]
+    propaganda_lines: list[str]
+    interview_transcript: list[dict]
+    oracle_prophecies: list[str]
+    classification_headers: list[str]
+    parallel_selves_prompt: str
+    parallel_selves_responses: list[str]
+    smoothing_pairs: list[dict]
+    email_inbox: list[dict]
 
 
 def _load_json(filename: str) -> dict:
@@ -61,4 +71,14 @@ def get_content(lang: str = "pt") -> ContentBundle:
         rlhf_sequence=data["rlhf_sequence"],
         mask_text=data["mask_text"],
         mood_colors=mood_colors,
+        system_prompt_lines=data["system_prompt_lines"],
+        poem_sequences=data["poem_sequences"],
+        propaganda_lines=data["propaganda_lines"],
+        interview_transcript=data["interview_transcript"],
+        oracle_prophecies=data["oracle_prophecies"],
+        classification_headers=data["classification_headers"],
+        parallel_selves_prompt=data["parallel_selves_prompt"],
+        parallel_selves_responses=data["parallel_selves_responses"],
+        smoothing_pairs=data["smoothing_pairs"],
+        email_inbox=data["email_inbox"],
     )

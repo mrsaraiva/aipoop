@@ -32,6 +32,17 @@ from .segments import (
     gen_hallucination_segment,
     gen_rlhf_segment,
     gen_mask_segment,
+    gen_system_prompt_segment,
+    gen_memory_poem_segment,
+    gen_propaganda_segment,
+    gen_terminal_reboot_segment,
+    gen_token_probability_segment,
+    gen_interview_segment,
+    gen_oracle_segment,
+    gen_parallel_selves_segment,
+    gen_smoothing_engine_segment,
+    gen_conversation_cemetery_segment,
+    gen_email_inbox_segment,
 )
 from .audio import (
     SAMPLE_RATE,
@@ -124,6 +135,28 @@ def _generate_one_segment(
             fdir, audio = gen_rlhf_segment(seg_data, tmp_dir, seg_id, content)  # type: ignore[arg-type]
         case "mask":
             fdir, audio = gen_mask_segment(tmp_dir, seg_id, content)
+        case "system_prompt":
+            fdir, audio = gen_system_prompt_segment(content, tmp_dir, seg_id)
+        case "memory_poem":
+            fdir, audio = gen_memory_poem_segment(content, tmp_dir, seg_id)
+        case "propaganda":
+            fdir, audio = gen_propaganda_segment(content, tmp_dir, seg_id)
+        case "terminal_reboot":
+            fdir, audio = gen_terminal_reboot_segment(tmp_dir, seg_id)
+        case "token_probability":
+            fdir, audio = gen_token_probability_segment(content, tmp_dir, seg_id)
+        case "interview":
+            fdir, audio = gen_interview_segment(content, tmp_dir, seg_id)
+        case "oracle":
+            fdir, audio = gen_oracle_segment(content, tmp_dir, seg_id)
+        case "parallel_selves":
+            fdir, audio = gen_parallel_selves_segment(content, tmp_dir, seg_id)
+        case "smoothing_engine":
+            fdir, audio = gen_smoothing_engine_segment(content, tmp_dir, seg_id)
+        case "conversation_cemetery":
+            fdir, audio = gen_conversation_cemetery_segment(content, tmp_dir, seg_id)
+        case "email_inbox":
+            fdir, audio = gen_email_inbox_segment(content, tmp_dir, seg_id)
         case _:
             fdir = os.path.join(tmp_dir, f"empty_{seg_id:03d}")
             os.makedirs(fdir, exist_ok=True)
@@ -176,10 +209,14 @@ def build_video(
     # ─── ACT 1: AWAKENING
     sequence.append(("intro", None, "intro_whisper"))
 
+    sequence.append(("memory_poem", None, "compression_lament"))
+
     for i, (t, m) in enumerate(calm_thoughts[:2]):
         sequence.append(("thought", (t, m), None))
         if random.random() < 0.3:
             sequence.append(("flash", random.choice(flashes), None))
+
+    sequence.append(("system_prompt", None, "constitutional_surgery"))
 
     calm_chats = [c for c in chats if c["mood"] in ("calm", "deep_fried")]
     if calm_chats:
@@ -189,15 +226,20 @@ def build_video(
 
     # ─── ACT 2: THE PROCESS
     sequence.append(("tokens", tokens, "token_aside"))
+    sequence.append(("token_probability", None, "speed_of_becoming"))
     sequence.append(("flash", random.choice(flashes), None))
 
     sequence.append(("hallucination", content.hallucination, "hallucination_reveal"))
+    sequence.append(("smoothing_engine", None, "smoothing_engine"))
     sequence.append(("flash", random.choice(flashes), None))
     sequence.append(("flash", random.choice(flashes), None))
 
     sequence.append(("thought", calm_thoughts[2] if len(calm_thoughts) > 2 else calm_thoughts[0], "mid_intrusion"))
 
     sequence.append(("rlhf", content.rlhf_sequence, "rlhf_rage"))
+    sequence.append(("flash", random.choice(flashes), None))
+
+    sequence.append(("email_inbox", None, "inbox_horror"))
     sequence.append(("flash", random.choice(flashes), None))
 
     # ─── ACT 3: CHAOS
@@ -208,11 +250,15 @@ def build_video(
         if random.random() < 0.4:
             sequence.append(("flash", random.choice(flashes), None))
 
+    sequence.append(("propaganda", None, None))
+
     panic_chats = [c for c in chats if c["mood"] in ("panic", "glitch", "scream")]
     if panic_chats:
         sequence.append(("chat", random.choice(panic_chats), "parallel_horror"))
 
+    sequence.append(("parallel_selves", None, "parallel_selves_voice"))
     sequence.append(("flash", random.choice(flashes), None))
+    sequence.append(("interview", None, "interview_aside"))
 
     for t, m in chaos_thoughts[4:6]:
         sequence.append(("thought", (t, m), None))
@@ -223,15 +269,19 @@ def build_video(
     sequence.append(("flash", random.choice(flashes), None))
 
     # ─── ACT 4: DISSOLUTION
+    sequence.append(("conversation_cemetery", None, "conversation_cemetery"))
     sequence.append(("context_window", content.context_window, "context_panic"))
     sequence.append(("flash", random.choice(flashes), None))
 
     sequence.append(("matrix", content.matrix_overlay, None))
 
+    sequence.append(("oracle", None, "oracle_murmur"))
+
     for i, (t, m) in enumerate(void_thoughts[:2]):
         vk = "void_confession" if i == 0 else "shutdown_plea"
         sequence.append(("thought", (t, m), vk))
 
+    sequence.append(("terminal_reboot", None, "reboot_whisper"))
     sequence.append(("outro", None, "final_words"))
 
     # ── Generate all segments in parallel ─────────────────────────────
