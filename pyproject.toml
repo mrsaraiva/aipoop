@@ -21,6 +21,7 @@ dependencies = [
     "omegaconf",
     "scipy",
     "tokenizers>=0.21",
+    "midiutil>=1.2.1",
 ]
 
 [project.scripts]
