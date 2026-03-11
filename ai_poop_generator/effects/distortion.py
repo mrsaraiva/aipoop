@@ -1,5 +1,6 @@
 """Distortion effects: deep-fry, chromatic aberration, VHS, glitch blocks, etc."""
 
+import functools
 import random
 import numpy as np
 from PIL import Image, ImageDraw
@@ -37,13 +38,21 @@ def chromatic_aberration(img: Image.Image, offset: int = 6) -> Image.Image:
     return Image.merge("RGB", (r, g, b))
 
 
+@functools.lru_cache(maxsize=16)
+def _scanlines_mask(width: int, height: int, gap: int, alpha: int) -> np.ndarray:
+    """Pre-compute a scanlines darkening factor array (cached)."""
+    factor = np.ones((height, 1, 1), dtype=np.float32)
+    factor[::gap, :, :] = 1.0 - alpha / 255.0
+    return factor
+
+
 def scanlines(img: Image.Image, gap: int = 3, alpha: int = 80) -> Image.Image:
-    """Add CRT-style scanlines."""
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    for y in range(0, img.size[1], gap):
-        draw.line([(0, y), (img.size[0], y)], fill=(0, 0, 0, alpha))
-    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    """Add CRT-style scanlines using cached numpy mask."""
+    w, h = img.size
+    factor = _scanlines_mask(w, h, gap, alpha)
+    arr = np.array(img, dtype=np.float32)
+    arr *= factor
+    return Image.fromarray(arr.astype(np.uint8))
 
 
 def pixel_sort_horizontal(img: Image.Image, threshold: int = 100) -> Image.Image:

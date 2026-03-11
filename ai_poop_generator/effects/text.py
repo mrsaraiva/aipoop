@@ -1,9 +1,11 @@
 """Text rendering utilities: fonts, outlined text, shadow text."""
 
+import functools
 import random
 from PIL import Image, ImageDraw, ImageFont
 
 
+@functools.lru_cache(maxsize=64)
 def get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     """Try to load a monospace font, fall back to default."""
     candidates = [

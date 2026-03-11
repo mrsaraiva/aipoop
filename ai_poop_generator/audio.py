@@ -1,175 +1,139 @@
 """
 Audio generation: synthesize glitchy soundscapes with pure math.
 No external audio libraries needed - we generate raw PCM and let FFmpeg handle it.
+
+All generators use vectorized numpy operations for speed.
 """
 
-import struct
-import math
 import random
+import numpy as np
 
 
 SAMPLE_RATE = 44100
 
 
-def _sin(freq: float, t: float, amp: float = 1.0) -> float:
-    return amp * math.sin(2 * math.pi * freq * t)
+def _sin(freq: float | np.ndarray, t: np.ndarray, amp: float = 1.0) -> np.ndarray:
+    return amp * np.sin(2 * np.pi * freq * t)
 
 
-def _square(freq: float, t: float, amp: float = 1.0) -> float:
-    return amp * (1.0 if math.sin(2 * math.pi * freq * t) >= 0 else -1.0)
+def _square(freq: float | np.ndarray, t: np.ndarray, amp: float = 1.0) -> np.ndarray:
+    return amp * np.sign(np.sin(2 * np.pi * freq * t))
 
 
-def _noise(amp: float = 1.0) -> float:
-    return amp * random.uniform(-1, 1)
-
-
-def generate_mood_audio(mood: str, duration: float) -> list[float]:
-    """Generate audio samples for a mood."""
-    n_samples = int(SAMPLE_RATE * duration)
-    samples = []
+def generate_mood_audio(mood: str, duration: float) -> np.ndarray:
+    """Generate audio samples for a mood. Returns float32 numpy array."""
+    n = int(SAMPLE_RATE * duration)
+    t = np.arange(n, dtype=np.float32) / SAMPLE_RATE
 
     match mood:
         case "calm":
-            # Soft ambient drone with gentle oscillation
-            base_freq = random.choice([110, 130.81, 146.83])  # A2, C3, D3
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                lfo = 0.3 * math.sin(2 * math.pi * 0.5 * t)
-                s = _sin(base_freq, t, 0.15 + lfo * 0.05)
-                s += _sin(base_freq * 1.5, t, 0.08)
-                s += _sin(base_freq * 2, t, 0.04)
-                samples.append(s * 0.5)
+            base_freq = random.choice([110, 130.81, 146.83])
+            lfo = 0.3 * np.sin(2 * np.pi * 0.5 * t)
+            s = _sin(base_freq, t, 0.15) + lfo * 0.05 * _sin(base_freq, t)
+            s += _sin(base_freq * 1.5, t, 0.08)
+            s += _sin(base_freq * 2, t, 0.04)
+            samples = s * 0.5
 
         case "panic":
-            # Rapid heartbeat-like pulse with rising pitch
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                freq = 80 + 200 * (t / duration)
-                pulse = abs(_sin(8, t)) ** 4
-                s = _sin(freq, t, 0.3) * pulse
-                s += _square(freq * 0.5, t, 0.1) * pulse
-                s += _noise(0.05)
-                samples.append(s)
+            freq = 80 + 200 * (t / duration)
+            pulse = np.abs(_sin(8, t)) ** 4
+            s = _sin(freq, t, 0.3) * pulse
+            s += _square(freq * 0.5, t, 0.1) * pulse
+            s += np.random.uniform(-0.05, 0.05, n).astype(np.float32)
+            samples = s
 
         case "glitch":
-            # Bitcrushed chaos with random frequency jumps
-            freq = 220
-            change_every = SAMPLE_RATE // 15  # 15 changes/sec
-            for i in range(n_samples):
-                if i % change_every == 0:
-                    freq = random.choice([55, 110, 220, 440, 880, 1760, 69, 666])
-                t = i / SAMPLE_RATE
-                s = _square(freq, t, 0.2)
-                # Bitcrush: reduce resolution
-                s = round(s * 8) / 8
-                s += _noise(0.08)
-                samples.append(s)
+            change_every = SAMPLE_RATE // 15
+            freqs = [55, 110, 220, 440, 880, 1760, 69, 666]
+            # Build per-sample frequency array
+            n_changes = n // change_every + 1
+            freq_choices = np.array([random.choice(freqs) for _ in range(n_changes)], dtype=np.float32)
+            freq_arr = np.repeat(freq_choices, change_every)[:n]
+            # Compute phase to avoid discontinuities within each freq block
+            s = _square(freq_arr, t, 0.2)
+            s = np.round(s * 8) / 8  # Bitcrush
+            s += np.random.uniform(-0.08, 0.08, n).astype(np.float32)
+            samples = s
 
         case "deep_fried":
-            # Distorted bass with clipping
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                s = _sin(55, t, 0.6) + _sin(110, t, 0.3) + _square(82.5, t, 0.2)
-                s += _noise(0.1)
-                s = max(-0.4, min(0.4, s * 3))  # Hard clip
-                samples.append(s)
+            s = _sin(55, t, 0.6) + _sin(110, t, 0.3) + _square(82.5, t, 0.2)
+            s += np.random.uniform(-0.1, 0.1, n).astype(np.float32)
+            samples = np.clip(s * 3, -0.4, 0.4)
 
         case "void":
-            # Near silence with occasional sub-bass rumbles
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                rumble = _sin(30, t, 0.08) * (0.5 + 0.5 * _sin(0.2, t))
-                s = rumble + _noise(0.01)
-                samples.append(s)
+            rumble = _sin(30, t, 0.08) * (0.5 + 0.5 * _sin(0.2, t))
+            s = rumble + np.random.uniform(-0.01, 0.01, n).astype(np.float32)
+            samples = s
 
         case "scream":
-            # Harsh sawtooth screech
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                freq = 440 + 200 * math.sin(2 * math.pi * 3 * t)
-                saw = 2 * (freq * t % 1) - 1
-                s = saw * 0.25
-                s += _square(freq * 0.5, t, 0.15)
-                s += _noise(0.05)
-                s = max(-0.6, min(0.6, s))
-                samples.append(s)
+            freq = 440 + 200 * np.sin(2 * np.pi * 3 * t)
+            saw = 2 * (freq * t % 1) - 1
+            s = saw * 0.25
+            s += _square(freq * 0.5, t, 0.15)
+            s += np.random.uniform(-0.05, 0.05, n).astype(np.float32)
+            samples = np.clip(s, -0.6, 0.6)
 
         case "whisper":
-            # Filtered noise, like wind
-            for i in range(n_samples):
-                t = i / SAMPLE_RATE
-                s = _noise(0.06)
-                s += _sin(200, t, 0.02) * _sin(0.3, t)
-                samples.append(s)
+            s = np.random.uniform(-0.06, 0.06, n).astype(np.float32)
+            s += _sin(200, t, 0.02) * _sin(0.3, t)
+            samples = s
 
         case _:
-            # Silence
-            samples = [0.0] * n_samples
+            samples = np.zeros(n, dtype=np.float32)
 
-    return samples
+    return samples.astype(np.float32)
 
 
-def generate_transition_sound(kind: str, duration: float = 0.15) -> list[float]:
-    """Generate short transition sound effects."""
+def generate_transition_sound(kind: str, duration: float = 0.15) -> np.ndarray:
+    """Generate short transition sound effects. Returns float32 numpy array."""
     n = int(SAMPLE_RATE * duration)
-    samples = []
+    t = np.arange(n, dtype=np.float32) / SAMPLE_RATE
+    env = np.maximum(0, 1.0 - t / duration).astype(np.float32)
 
     match kind:
         case "whoosh":
-            for i in range(n):
-                t = i / SAMPLE_RATE
-                freq = 200 + 2000 * (t / duration)
-                env = 1.0 - t / duration
-                s = _noise(0.3 * env) + _sin(freq, t, 0.1 * env)
-                samples.append(s)
+            freq = 200 + 2000 * (t / duration)
+            s = np.random.uniform(-0.3, 0.3, n).astype(np.float32) * env
+            s += _sin(freq, t, 0.1) * env
+            samples = s
         case "glitch_hit":
-            for i in range(n):
-                t = i / SAMPLE_RATE
-                env = max(0, 1.0 - t / duration * 3)
-                s = _square(random.choice([100, 200, 400, 800]), t, 0.4 * env)
-                s += _noise(0.2 * env)
-                samples.append(s)
+            env_fast = np.maximum(0, 1.0 - t / duration * 3).astype(np.float32)
+            # Random freq per sample for maximum chaos
+            freqs = np.array([random.choice([100, 200, 400, 800]) for _ in range(n)], dtype=np.float32)
+            s = _square(freqs, t, 0.4) * env_fast
+            s += np.random.uniform(-0.2, 0.2, n).astype(np.float32) * env_fast
+            samples = s
         case "bass_drop":
-            for i in range(n):
-                t = i / SAMPLE_RATE
-                freq = 200 * (1.0 - t / duration * 0.8)
-                env = max(0, 1.0 - t / duration)
-                s = _sin(freq, t, 0.5 * env)
-                s = max(-0.5, min(0.5, s * 2))
-                samples.append(s)
+            freq = (200 * (1.0 - t / duration * 0.8)).astype(np.float32)
+            s = _sin(freq, t, 0.5) * env
+            samples = np.clip(s * 2, -0.5, 0.5)
         case "rewind":
-            for i in range(n):
-                t = i / SAMPLE_RATE
-                freq = 1000 - 800 * (t / duration)
-                s = _square(freq, t, 0.2)
-                samples.append(s)
+            freq = (1000 - 800 * (t / duration)).astype(np.float32)
+            samples = _square(freq, t, 0.2)
         case _:
-            samples = [0.0] * n
+            samples = np.zeros(n, dtype=np.float32)
 
-    return samples
-
-
-def samples_to_raw_file(samples: list[float], path: str):
-    """Write float samples to a raw 16-bit PCM file."""
-    with open(path, "wb") as f:
-        for s in samples:
-            clamped = max(-1.0, min(1.0, s))
-            val = int(clamped * 32767)
-            f.write(struct.pack("<h", val))
+    return samples.astype(np.float32)
 
 
-def concat_audio_segments(segments: list[list[float]]) -> list[float]:
+def samples_to_raw_file(samples: np.ndarray, path: str):
+    """Write numpy samples to a raw 16-bit PCM file."""
+    pcm = np.clip(samples, -1.0, 1.0)
+    pcm = (pcm * 32767).astype(np.int16)
+    pcm.tofile(path)
+
+
+def concat_audio_segments(segments: list[np.ndarray]) -> np.ndarray:
     """Concatenate audio segments with tiny crossfade."""
     if not segments:
-        return []
-    result = segments[0]
+        return np.array([], dtype=np.float32)
+    result = segments[0].copy()
     fade = min(200, SAMPLE_RATE // 50)  # ~20ms crossfade
     for seg in segments[1:]:
         if len(result) >= fade and len(seg) >= fade:
-            for i in range(fade):
-                mix = i / fade
-                result[-(fade - i)] = result[-(fade - i)] * (1 - mix) + seg[i] * mix
-            result.extend(seg[fade:])
+            mix = np.linspace(0, 1, fade, dtype=np.float32)
+            result[-fade:] = result[-fade:] * (1 - mix) + seg[:fade] * mix
+            result = np.concatenate([result, seg[fade:]])
         else:
-            result.extend(seg)
+            result = np.concatenate([result, seg])
     return result

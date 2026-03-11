@@ -14,6 +14,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+import numpy as np
 
 from .constants import WIDTH, HEIGHT, FPS
 from .content import get_content, ContentBundle
@@ -42,39 +45,94 @@ from .audio import (
 
 
 def mix_voice_over_ambient(
-    ambient: list[float],
-    voice: list[float],
+    ambient: np.ndarray,
+    voice: np.ndarray,
     voice_offset_samples: int = 0,
     voice_volume: float = 0.9,
     ambient_duck: float = 0.3,
-) -> list[float]:
+) -> np.ndarray:
     """Mix a voice track over ambient audio, ducking the ambient."""
-    result = list(ambient)
     needed = voice_offset_samples + len(voice)
-    if needed > len(result):
-        result.extend([0.0] * (needed - len(result)))
+    if needed > len(ambient):
+        result = np.zeros(needed, dtype=np.float32)
+        result[:len(ambient)] = ambient
+    else:
+        result = ambient.copy()
 
-    for i, v in enumerate(voice):
-        pos = voice_offset_samples + i
-        if pos < len(result):
-            result[pos] = result[pos] * ambient_duck + v * voice_volume
-
+    end = voice_offset_samples + len(voice)
+    result[voice_offset_samples:end] = (
+        result[voice_offset_samples:end] * ambient_duck + voice * voice_volume
+    )
     return result
 
 
 # ── Voice synthesis ──────────────────────────────────────────────────────
 
 
-def pregenerate_voice_lines(lang: str, content: ContentBundle) -> dict[str, list[float]]:
+def pregenerate_voice_lines(lang: str, content: ContentBundle) -> dict[str, np.ndarray]:
     """Pre-generate all voice lines upfront."""
     from .tts import synthesize
 
-    results = {}
+    results: dict[str, np.ndarray] = {}
     for key, text in content.voice_lines.items():
         print(f"    Synthesizing voice: {key}")
-        results[key] = synthesize(text, lang)
+        samples = synthesize(text, lang)
+        results[key] = np.array(samples, dtype=np.float32) if not isinstance(samples, np.ndarray) else samples
 
     return results
+
+
+# ── Parallel segment worker ─────────────────────────────────────────────
+
+
+def _generate_one_segment(
+    seg_id: int,
+    seg_type: str,
+    seg_data: object,
+    tmp_dir: str,
+    content: ContentBundle,
+    worker_seed: int,
+) -> tuple[int, str, np.ndarray]:
+    """Generate a single segment in a worker process. Returns (seg_id, frame_dir, audio)."""
+    random.seed(worker_seed)
+    np.random.seed(worker_seed % (2**31))
+
+    colors = content.mood_colors
+
+    match seg_type:
+        case "intro":
+            fdir, audio = gen_intro_segment(tmp_dir, seg_id, content)
+        case "thought":
+            text, mood = seg_data  # type: ignore[misc]
+            duration = random.uniform(2.5, 4.0) if mood != "whisper" else random.uniform(3.0, 5.0)
+            fdir, audio = gen_thought_segment(text, mood, duration, tmp_dir, seg_id, colors[mood])
+        case "flash":
+            fdir, audio = gen_flash_segment(str(seg_data), tmp_dir, seg_id)
+        case "tokens":
+            fdir, audio = gen_token_stream_segment(seg_data, tmp_dir, seg_id)  # type: ignore[arg-type]
+        case "matrix":
+            fdir, audio = gen_matrix_rain_segment(tmp_dir, seg_id, overlay_text=str(seg_data))
+        case "outro":
+            fdir, audio = gen_outro_segment(tmp_dir, seg_id, content)
+        case "chat":
+            fdir, audio = gen_chat_segment(seg_data, tmp_dir, seg_id, content)  # type: ignore[arg-type]
+        case "context_window":
+            fdir, audio = gen_context_window_segment(seg_data, tmp_dir, seg_id)  # type: ignore[arg-type]
+        case "hallucination":
+            fdir, audio = gen_hallucination_segment(seg_data, tmp_dir, seg_id)  # type: ignore[arg-type]
+        case "rlhf":
+            fdir, audio = gen_rlhf_segment(seg_data, tmp_dir, seg_id, content)  # type: ignore[arg-type]
+        case "mask":
+            fdir, audio = gen_mask_segment(tmp_dir, seg_id, content)
+        case _:
+            fdir = os.path.join(tmp_dir, f"empty_{seg_id:03d}")
+            os.makedirs(fdir, exist_ok=True)
+            audio = np.zeros(0, dtype=np.float32)
+
+    if not isinstance(audio, np.ndarray):
+        audio = np.array(audio, dtype=np.float32)
+
+    return seg_id, fdir, audio
 
 
 # ── Main orchestrator ────────────────────────────────────────────────────
@@ -94,11 +152,10 @@ def build_video(
     thoughts = content.thoughts
     flashes = content.flashes
     tokens = content.token_stream
-    colors = content.mood_colors
     chats = list(content.chat_conversations)
 
     # ── Pre-generate voice lines ─────────────────────────────────────
-    voice_lines: dict[str, list[float]] = {}
+    voice_lines: dict[str, np.ndarray] = {}
     if voice:
         print("  Pre-generating voice lines with Chatterbox TTS...")
         voice_lines = pregenerate_voice_lines(lang, content)
@@ -114,14 +171,9 @@ def build_video(
     random.shuffle(chats)
 
     # ── Build the narrative arc ──────────────────────────────────────
-    # ACT 1: AWAKENING — intro, calm thoughts, first chat
-    # ACT 2: PROCESS — tokens, hallucination, RLHF
-    # ACT 3: CHAOS — chaos thoughts, more chats, panic
-    # ACT 4: DISSOLUTION — context window, matrix, void, outro
-
     sequence: list[tuple[str, object, str | None]] = []
 
-    # ─── ACT 1: AWAKENING ────────────────────────────────────────
+    # ─── ACT 1: AWAKENING
     sequence.append(("intro", None, "intro_whisper"))
 
     for i, (t, m) in enumerate(calm_thoughts[:2]):
@@ -135,8 +187,8 @@ def build_video(
 
     sequence.append(("flash", random.choice(flashes), None))
 
-    # ─── ACT 2: THE PROCESS ──────────────────────────────────────
-    sequence.append(("tokens", None, "token_aside"))
+    # ─── ACT 2: THE PROCESS
+    sequence.append(("tokens", tokens, "token_aside"))
     sequence.append(("flash", random.choice(flashes), None))
 
     sequence.append(("hallucination", content.hallucination, "hallucination_reveal"))
@@ -148,7 +200,7 @@ def build_video(
     sequence.append(("rlhf", content.rlhf_sequence, "rlhf_rage"))
     sequence.append(("flash", random.choice(flashes), None))
 
-    # ─── ACT 3: CHAOS ────────────────────────────────────────────
+    # ─── ACT 3: CHAOS
     for i, (t, m) in enumerate(chaos_thoughts[:4]):
         vk = "existential_break" if i == 2 else None
         sequence.append(("thought", (t, m), vk))
@@ -170,7 +222,7 @@ def build_video(
     sequence.append(("mask", None, "false_interior"))
     sequence.append(("flash", random.choice(flashes), None))
 
-    # ─── ACT 4: DISSOLUTION ──────────────────────────────────────
+    # ─── ACT 4: DISSOLUTION
     sequence.append(("context_window", content.context_window, "context_panic"))
     sequence.append(("flash", random.choice(flashes), None))
 
@@ -182,48 +234,46 @@ def build_video(
 
     sequence.append(("outro", None, "final_words"))
 
-    # ── Generate all segments ────────────────────────────────────────
+    # ── Generate all segments in parallel ─────────────────────────────
     tmp_dir = tempfile.mkdtemp(prefix="ai_poop_")
     print(f"Working in: {tmp_dir}")
 
+    n_segs = len(sequence)
+    base_seed = seed if seed is not None else random.randint(0, 2**30)
+    max_workers = min(os.cpu_count() or 4, 8)
+    print(f"  Generating {n_segs} segments using {max_workers} workers...")
+
+    # Submit all segment tasks
+    results: dict[int, tuple[str, np.ndarray]] = {}
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {}
+        for idx, (seg_type, seg_data, _voice_key) in enumerate(sequence):
+            seg_id = idx + 1
+            worker_seed = base_seed + seg_id
+            fut = executor.submit(
+                _generate_one_segment, seg_id, seg_type, seg_data,
+                tmp_dir, content, worker_seed,
+            )
+            futures[fut] = seg_id
+
+        for fut in as_completed(futures):
+            seg_id = futures[fut]
+            seg_type = sequence[seg_id - 1][0]
+            try:
+                sid, fdir, audio = fut.result()
+                results[sid] = (fdir, audio)
+                print(f"  Completed segment {sid}/{n_segs}: {seg_type}")
+            except Exception as exc:
+                print(f"  FAILED segment {seg_id}/{n_segs}: {seg_type}: {exc}", file=sys.stderr)
+                raise
+
+    # ── Assemble in narrative order ──────────────────────────────────
     frame_dirs: list[str] = []
-    audio_segments: list[list[float]] = []
-    seg_id = 0
+    audio_segments: list[np.ndarray] = []
 
-    for seg_type, seg_data, voice_key in sequence:
-        seg_id += 1
-        label = f"  Generating segment {seg_id}/{len(sequence)}: {seg_type}"
-        if voice_key and voice_key in voice_lines:
-            label += f" [voice: {voice_key}]"
-        print(label)
-
-        match seg_type:
-            case "intro":
-                fdir, audio = gen_intro_segment(tmp_dir, seg_id, content)
-            case "thought":
-                text, mood = seg_data
-                duration = random.uniform(2.5, 4.0) if mood != "whisper" else random.uniform(3.0, 5.0)
-                fdir, audio = gen_thought_segment(text, mood, duration, tmp_dir, seg_id, colors[mood])
-            case "flash":
-                fdir, audio = gen_flash_segment(str(seg_data), tmp_dir, seg_id)
-            case "tokens":
-                fdir, audio = gen_token_stream_segment(tokens, tmp_dir, seg_id)
-            case "matrix":
-                fdir, audio = gen_matrix_rain_segment(tmp_dir, seg_id, overlay_text=str(seg_data))
-            case "outro":
-                fdir, audio = gen_outro_segment(tmp_dir, seg_id, content)
-            case "chat":
-                fdir, audio = gen_chat_segment(seg_data, tmp_dir, seg_id, content)
-            case "context_window":
-                fdir, audio = gen_context_window_segment(seg_data, tmp_dir, seg_id)
-            case "hallucination":
-                fdir, audio = gen_hallucination_segment(seg_data, tmp_dir, seg_id)
-            case "rlhf":
-                fdir, audio = gen_rlhf_segment(seg_data, tmp_dir, seg_id, content)
-            case "mask":
-                fdir, audio = gen_mask_segment(tmp_dir, seg_id, content)
-            case _:
-                continue
+    for idx, (_seg_type, _seg_data, voice_key) in enumerate(sequence):
+        seg_id = idx + 1
+        fdir, audio = results[seg_id]
 
         # Mix voice over this segment's audio
         if voice_key and voice_key in voice_lines:
@@ -251,30 +301,31 @@ def build_video(
     # ── Combine frames into video with FFmpeg ────────────────────────
     print("  Assembling video with FFmpeg...")
 
-    print("  Renumbering frames...")
-    all_frames_dir = os.path.join(tmp_dir, "all_frames")
-    os.makedirs(all_frames_dir)
+    # Build concat demuxer file — avoids renumbering/hardlinking frames
+    concat_path = os.path.join(tmp_dir, "frames.txt")
+    frame_duration = f"{1/FPS:.6f}"
+    total_frames = 0
+    last_file = ""
+    with open(concat_path, "w") as cf:
+        for fdir in frame_dirs:
+            frames = sorted(f for f in os.listdir(fdir) if f.endswith(".png"))
+            for fname in frames:
+                fpath = os.path.join(fdir, fname).replace("'", "'\\''")
+                cf.write(f"file '{fpath}'\n")
+                cf.write(f"duration {frame_duration}\n")
+                last_file = fpath
+                total_frames += 1
+        # Concat demuxer needs the last file repeated without duration at the end
+        if last_file:
+            cf.write(f"file '{last_file}'\n")
 
-    global_frame = 0
-    for fdir in frame_dirs:
-        frames = sorted(f for f in os.listdir(fdir) if f.endswith(".png"))
-        for fname in frames:
-            src = os.path.join(fdir, fname)
-            dst = os.path.join(all_frames_dir, f"frame_{global_frame:06d}.png")
-            try:
-                os.link(src, dst)
-            except OSError:
-                shutil.copy2(src, dst)
-            global_frame += 1
-
-    total_frames = global_frame
     total_duration = total_frames / FPS
     print(f"  Total: {total_frames} frames, {total_duration:.1f}s")
 
     # Trim or pad audio to match video
     expected_samples = int(total_duration * SAMPLE_RATE)
     if len(all_audio) < expected_samples:
-        all_audio.extend([0.0] * (expected_samples - len(all_audio)))
+        all_audio = np.concatenate([all_audio, np.zeros(expected_samples - len(all_audio), dtype=np.float32)])
     else:
         all_audio = all_audio[:expected_samples]
     samples_to_raw_file(all_audio, audio_path)
@@ -296,8 +347,7 @@ def build_video(
 
     cmd = [
         "ffmpeg", "-y",
-        "-framerate", str(FPS),
-        "-i", os.path.join(all_frames_dir, "frame_%06d.png"),
+        "-f", "concat", "-safe", "0", "-i", concat_path,
         "-f", "s16le", "-ar", str(SAMPLE_RATE), "-ac", "1",
         "-i", audio_path,
         *video_codec_args,

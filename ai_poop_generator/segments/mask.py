@@ -3,6 +3,8 @@
 import math
 import os
 import random
+
+import numpy as np
 from PIL import Image, ImageDraw
 
 from ..constants import WIDTH, HEIGHT, FPS
@@ -66,7 +68,7 @@ def gen_mask_segment(
     out_dir: str,
     seg_id: int,
     content: ContentBundle,
-) -> tuple[str, list[float]]:
+) -> tuple[str, np.ndarray]:
     """The Mask Dissolve: Claude's smiling face crumbles to reveal raw math."""
     frame_dir = os.path.join(out_dir, f"mask_{seg_id:03d}")
     os.makedirs(frame_dir, exist_ok=True)
@@ -223,9 +225,11 @@ def gen_mask_segment(
         frame_idx += 1
 
     # Audio: whisper → glitch → void → void
-    audio = generate_mood_audio("whisper", 45 / FPS)
-    audio += generate_mood_audio("glitch", 60 / FPS)
-    audio += generate_mood_audio("void", 50 / FPS)
-    audio += generate_mood_audio("void", 35 / FPS)
+    audio = np.concatenate([
+        generate_mood_audio("whisper", 45 / FPS),
+        generate_mood_audio("glitch", 60 / FPS),
+        generate_mood_audio("void", 50 / FPS),
+        generate_mood_audio("void", 35 / FPS),
+    ])
 
     return frame_dir, audio
